@@ -1,69 +1,99 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Movie, MovieStatus } from '@/types';
+import { fetchMovies } from '@/lib/api';
+import MovieCard from '@/components/MovieCard';
 
 export default function Home() {
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<MovieStatus | 'ALL'>('ALL');
+
+  useEffect(() => {
+    async function loadMovies() {
+      try {
+        setLoading(true);
+        const data = await fetchMovies();
+        setMovies(data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to connect to backend server');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMovies();
+  }, []);
+
+  const filteredMovies = movies.filter((movie) => {
+    if (activeTab === 'ALL') return true;
+    return movie.status === activeTab;
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
+      <div className="max-w-5xl mx-auto">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b border-slate-800 gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white">
+              🎬 Watched Movies Tracker
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Keep track of your watchlist and favorite genres.
+            </p>
+          </div>
+        </header>
+
+        {/* Filter Navigation Tabs */}
+        <div className="flex gap-2 mb-6">
+          {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                activeTab === tab
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+              }`}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              {tab === 'ALL' && `All (${movies.length})`}
+              {tab === 'TO_WATCH' &&
+                `To Watch (${movies.filter((m) => m.status === 'TO_WATCH').length})`}
+              {tab === 'WATCHED' &&
+                `Watched (${movies.filter((m) => m.status === 'WATCHED').length})`}
+            </button>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        {/* Content Area */}
+        {loading && (
+          <div className="text-center py-16 text-slate-500">
+            Loading movies from NestJS backend...
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 bg-red-950/50 border border-red-800 rounded-lg text-red-300 text-sm">
+            🚨 Error: {error}. Make sure your backend server is running on `http://localhost:3000`.
+          </div>
+        )}
+
+        {!loading && !error && filteredMovies.length === 0 && (
+          <div className="text-center py-16 bg-slate-800/40 rounded-xl border border-slate-800">
+            <p className="text-slate-400 mb-1">No movies found in this list.</p>
+          </div>
+        )}
+
+        {!loading && !error && filteredMovies.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMovies.map((movie) => (
+              <MovieCard key={movie.id} movie={movie} />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
