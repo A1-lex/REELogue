@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Genre {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  movies    Movie[]
+  createdAt DateTime @default(now())
+}
+
+model Movie {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  status      WatchStatus @default(TO_WATCH) // Enum: TO_WATCH or WATCHED
+  rating      Int?     // 1 to 5 stars, optional
+  trailerUrl  String?  // YouTube link
+  genreId     Int
+  genre       Genre    @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum WatchStatus {
+  TO_WATCH
+  WATCHED
+}
