@@ -4,15 +4,15 @@ import { CreateMovieDto } from './dto/create-movie.dto';
 
 @Controller('movies')
 export class MoviesController {
-    constructor( private readonly moviesService: MoviesService) {}
+  constructor(private readonly moviesService: MoviesService) {}
 
-    @Get()
-    async findAll() {
-        return this.moviesService.findAll()
-    }
+  @Get()
+  findAll() {
+    return this.moviesService.findAll();
+  }
 
-    @Post()
-    async create(@Body() createMovieDto: CreateMovieDto) {
-        return this.moviesService.create(createMovieDto);
-    }
+  @Post()
+  create(@Body() createMovieDto: CreateMovieDto) {
+    return this.moviesService.create(createMovieDto);
+  }
 }
