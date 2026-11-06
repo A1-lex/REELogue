@@ -21,10 +21,17 @@ export default function MovieCard({ movie }: MovieCardProps) {
           </span>
         </div>
 
-        {movie.genre && (
-          <span className="inline-block bg-indigo-950 text-indigo-300 border border-indigo-800 text-xs px-2.5 py-0.5 rounded-md mb-3">
-            {movie.genre.name}
-          </span>
+        {movie.genres && movie.genres.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {movie.genres.map((genre) => (
+              <span
+                key={genre.id}
+                className="bg-indigo-950 text-indigo-300 border border-indigo-800 text-xs px-2.5 py-0.5 rounded-md"
+              >
+                {genre.name}
+              </span>
+            ))}
+          </div>
         )}
 
         {movie.description && (

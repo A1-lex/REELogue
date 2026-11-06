@@ -12,12 +12,12 @@ interface AddMovieModalProps {
 
 export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovieModalProps) {
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [selectedGenreIds, setSelectedGenreIds] = useState<number[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<MovieStatus>('TO_WATCH');
   const [rating, setRating] = useState<number>(5);
   const [trailerUrl, setTrailerUrl] = useState('');
-  const [genreId, setGenreId] = useState<number | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,11 +31,20 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
     try {
       const data = await fetchGenres();
       setGenres(data);
-      if (data.length > 0) {
-        setGenreId(data[0].id);
+      if (data.length > 0 && selectedGenreIds.length === 0) {
+        setSelectedGenreIds([data[0].id]);
       }
     } catch (err: any) {
       setError('Failed to fetch genres for selection.');
+    }
+  }
+
+  function toggleGenre(id: number) {
+    if (selectedGenreIds.includes(id)) {
+      if (selectedGenreIds.length === 1) return; // keep at least 1 selected
+      setSelectedGenreIds(selectedGenreIds.filter((gId) => gId !== id));
+    } else {
+      setSelectedGenreIds([...selectedGenreIds, id]);
     }
   }
 
@@ -43,8 +52,8 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title || !genreId) {
-      setError('Title and Genre are required.');
+    if (!title || selectedGenreIds.length === 0) {
+      setError('Title and at least one Genre are required.');
       return;
     }
 
@@ -57,10 +66,9 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
         status,
         rating: Number(rating),
         trailerUrl: trailerUrl || undefined,
-        genreId: Number(genreId),
+        genreIds: selectedGenreIds,
       });
 
-      // Reset form & notify parent
       setTitle('');
       setDescription('');
       setTrailerUrl('');
@@ -107,24 +115,32 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Genre *
-              </label>
-              <select
-                value={genreId}
-                onChange={(e) => setGenreId(Number(e.target.value))}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-              >
-                {genres.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Genres (Select one or more) *
+            </label>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {genres.map((g) => {
+                const isSelected = selectedGenreIds.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => toggleGenre(g.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      isSelected
+                        ? 'bg-indigo-600 border-indigo-500 text-white shadow'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {g.name} {isSelected && '✓'}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Status
@@ -138,9 +154,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
                 <option value="WATCHED">Watched</option>
               </select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Rating (1-5 Stars)
@@ -154,19 +168,19 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Trailer URL
-              </label>
-              <input
-                type="url"
-                value={trailerUrl}
-                onChange={(e) => setTrailerUrl(e.target.value)}
-                placeholder="https://youtube.com/..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Trailer URL
+            </label>
+            <input
+              type="url"
+              value={trailerUrl}
+              onChange={(e) => setTrailerUrl(e.target.value)}
+              placeholder="https://youtube.com/..."
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+            />
           </div>
 
           <div>
