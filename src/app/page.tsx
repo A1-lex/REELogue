@@ -4,26 +4,28 @@ import { useEffect, useState } from 'react';
 import { Movie, MovieStatus } from '@/types';
 import { fetchMovies } from '@/lib/api';
 import MovieCard from '@/components/MovieCard';
+import AddMovieModal from '@/components/AddMovieModal';
 
 export default function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<MovieStatus | 'ALL'>('ALL');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  async function loadMovies() {
+    try {
+      setLoading(true);
+      const data = await fetchMovies();
+      setMovies(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect to backend server');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadMovies() {
-      try {
-        setLoading(true);
-        const data = await fetchMovies();
-        setMovies(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to connect to backend server');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadMovies();
   }, []);
 
@@ -44,6 +46,12 @@ export default function Home() {
               Keep track of your watchlist and favorite genres.
             </p>
           </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg transition flex items-center gap-2"
+          >
+            <span>+ Add Movie</span>
+          </button>
         </header>
 
         {/* Filter Navigation Tabs */}
@@ -94,6 +102,12 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <AddMovieModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onMovieAdded={loadMovies}
+      />
     </main>
   );
 }
