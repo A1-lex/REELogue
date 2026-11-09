@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
+import { WatchStatus } from '@prisma/client';
 
 @Injectable()
 export class MoviesService {
@@ -15,20 +16,28 @@ export class MoviesService {
           connect: genreIds.map((id) => ({ id })),
         },
       },
-      include: {
-        genres: true,
-      },
+      include: { genres: true },
     });
   }
 
   async findAll() {
     return this.prisma.movie.findMany({
-      include: {
-        genres: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      include: { genres: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async remove(id: number) {
+    return this.prisma.movie.delete({
+      where: { id },
+    });
+  }
+
+  async updateStatus(id: number, status: WatchStatus) {
+    return this.prisma.movie.update({
+      where: { id },
+      data: { status },
+      include: { genres: true },
     });
   }
 }
