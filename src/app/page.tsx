@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Movie, MovieStatus } from '@/types';
-import { fetchMovies } from '@/lib/api';
+import { fetchMovies, deleteMovie, updateMovieStatus } from '@/lib/api';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 
@@ -28,6 +28,24 @@ export default function Home() {
   useEffect(() => {
     loadMovies();
   }, []);
+
+  async function handleDelete(id: number) {
+    try {
+      await deleteMovie(id);
+      setMovies((prev) => prev.filter((m) => m.id !== id));
+    } catch (err: any) {
+      alert('Failed to delete movie');
+    }
+  }
+
+  async function handleStatusChange(id: number, newStatus: MovieStatus) {
+    try {
+      const updated = await updateMovieStatus(id, newStatus);
+      setMovies((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    } catch (err: any) {
+      alert('Failed to update movie status');
+    }
+  }
 
   const filteredMovies = movies.filter((movie) => {
     if (activeTab === 'ALL') return true;
@@ -97,7 +115,12 @@ export default function Home() {
         {!loading && !error && filteredMovies.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMovies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+              />
             ))}
           </div>
         )}
