@@ -92,7 +92,7 @@ export default function Home() {
         </header>
 
         {/* Search Bar & Status Tabs */}
-        <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 items-stretch sm:items-center justify-between">
           <div className="relative flex-1">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
             <input
@@ -107,18 +107,18 @@ export default function Home() {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex bg-slate-900/80 p-1 border border-slate-800 rounded-xl">
             {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                   activeTab === tab
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'bg-slate-900/60 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }`}
               >
-                {tab === 'ALL' ? 'All Movies' : tab === 'TO_WATCH' ? 'To Watch' : 'Watched'}
+                {tab === 'ALL' ? 'All' : tab === 'TO_WATCH' ? 'To Watch' : 'Watched'}
               </button>
             ))}
           </div>
