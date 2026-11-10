@@ -1,0 +1,17 @@
+{
+  "name": "Reelogue - Watched Movies Tracker",
+  "short_name": "Reelogue",
+  "description": "Your watch history, beautifully told.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

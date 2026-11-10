@@ -71,8 +71,15 @@ export default function Home() {
       <div className="max-w-5xl mx-auto">
         <header className="flex justify-between items-center mb-8 pb-6 border-b border-slate-800">
           <div>
-            <h1 className="text-3xl font-extrabold text-white">🎬 Watched Movies Tracker</h1>
-            <p className="text-slate-400 text-sm mt-1">Keep track of your watchlist and favorite genres.</p>
+            <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
+              <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                REELogue
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium tracking-normal">
+                v1.0
+              </span>
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">Your watch history, beautifully told.</p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
