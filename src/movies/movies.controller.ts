@@ -11,13 +11,13 @@ export class MoviesController {
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('genreId') genreId?: string,
+    @Query('search') search?: string,
   ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 6;
-    const genreIdNum = genreId ? parseInt(genreId, 10) : undefined;
-    
-    return this.moviesService.findAll(pageNum, limitNum, genreIdNum);
+    return this.moviesService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 6,
+      search,
+    );
   }
 
   @Post()

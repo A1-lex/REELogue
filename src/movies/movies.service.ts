@@ -20,17 +20,23 @@ export class MoviesService {
     });
   }
 
-async findAll(page: number = 1, limit: number = 6, genreId?: number) {
+async findAll(page: number = 1, limit: number = 6, search?: string) {
   const skip = (page - 1) * limit;
 
-  // Build the where clause dynamically
-  const where = genreId ? { genres: { some: { id: genreId } } } : {};
+  const where = search
+    ? {
+        title: {
+          contains: search,
+          mode: 'insensitive' as const,
+        },
+      }
+    : {};
 
-  const [movies, total] = await Promise.all([
+  const [data, total] = await Promise.all([
     this.prisma.movie.findMany({
+      where,
       skip,
       take: limit,
-      where,
       include: { genres: true },
       orderBy: { createdAt: 'desc' },
     }),
@@ -38,12 +44,12 @@ async findAll(page: number = 1, limit: number = 6, genreId?: number) {
   ]);
 
   return {
-    data: movies,
+    data,
     meta: {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit) || 1,
+      totalPages: Math.ceil(total / limit),
     },
   };
 }
