@@ -20,12 +20,33 @@ export class MoviesService {
     });
   }
 
-  async findAll() {
-    return this.prisma.movie.findMany({
+async findAll(page: number = 1, limit: number = 6, genreId?: number) {
+  const skip = (page - 1) * limit;
+
+  // Build the where clause dynamically
+  const where = genreId ? { genres: { some: { id: genreId } } } : {};
+
+  const [movies, total] = await Promise.all([
+    this.prisma.movie.findMany({
+      skip,
+      take: limit,
+      where,
       include: { genres: true },
       orderBy: { createdAt: 'desc' },
-    });
-  }
+    }),
+    this.prisma.movie.count({ where }),
+  ]);
+
+  return {
+    data: movies,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
+}
 
   async remove(id: number) {
     return this.prisma.movie.delete({

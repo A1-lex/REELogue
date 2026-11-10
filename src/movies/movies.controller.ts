@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Patch, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Body, Query } from '@nestjs/common';
 import { MoviesService } from './movies.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { WatchStatus } from '@prisma/client';
@@ -8,8 +8,16 @@ export class MoviesController {
   constructor(private readonly moviesService: MoviesService) {}
 
   @Get()
-  findAll() {
-    return this.moviesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('genreId') genreId?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 6;
+    const genreIdNum = genreId ? parseInt(genreId, 10) : undefined;
+    
+    return this.moviesService.findAll(pageNum, limitNum, genreIdNum);
   }
 
   @Post()
