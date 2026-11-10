@@ -2,11 +2,20 @@ import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
-export async function fetchMovies(page = 1, limit = 6, genreId?: number) {
-  let url = `http://localhost:3000/movies?page=${page}&limit=${limit}`;
-  if (genreId) url += `&genreId=${genreId}`;
-  
-  const res = await fetch(url);
+export async function fetchMovies(
+  page: number = 1,
+  limit: number = 6,
+  search?: string
+): Promise<{ data: Movie[]; meta: any }> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  if (search) {
+    params.append('search', search);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/movies?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch movies');
   return res.json();
 }
@@ -20,9 +29,7 @@ export async function fetchGenres(): Promise<Genre[]> {
 export async function createMovie(payload: CreateMoviePayload): Promise<Movie> {
   const res = await fetch(`${API_BASE_URL}/movies`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Failed to create movie');

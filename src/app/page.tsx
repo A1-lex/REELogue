@@ -2,36 +2,36 @@
 
 import { useEffect, useState } from 'react';
 import { Movie, MovieStatus, Genre } from '@/types';
-import { fetchMovies, deleteMovie, updateMovieStatus } from '@/lib/api';
+import { fetchMovies, fetchGenres, deleteMovie, updateMovieStatus } from '@/lib/api';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 
 export default function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
-  const [selectedGenreId, setSelectedGenreId] = useState<number | undefined>(undefined);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Pagination & Filters state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedGenreId, setSelectedGenreId] = useState<number | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<MovieStatus | 'ALL'>('ALL');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  // Fetch genres once on mount
+  // Load genres on mount
   useEffect(() => {
-    fetch('http://localhost:3000/genres')
-      .then((res) => res.json())
-      .then((data) => setGenres(data))
-      .catch((err) => console.error('Failed to load genres', err));
+    fetchGenres().then(setGenres).catch(() => {});
   }, []);
 
-  async function loadMovies(currentPage = 1, genreId = selectedGenreId) {
+  async function loadMovies(page = 1, search = searchQuery) {
     try {
       setLoading(true);
-      const res = await fetchMovies(currentPage, 6, genreId);
+      const res = await fetchMovies(page, 6, search);
       setMovies(res.data);
       setTotalPages(res.meta.totalPages);
-      setPage(res.meta.page);
+      setCurrentPage(res.meta.page);
     } catch (err: any) {
       setError(err.message || 'Failed to connect to backend server');
     } finally {
@@ -40,13 +40,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadMovies(page, selectedGenreId);
-  }, [page, selectedGenreId]);
+    loadMovies(currentPage, searchQuery);
+  }, [currentPage, searchQuery]);
 
   async function handleDelete(id: number) {
     try {
       await deleteMovie(id);
-      loadMovies(page, selectedGenreId);
+      loadMovies(currentPage, searchQuery);
     } catch (err: any) {
       alert('Failed to delete movie');
     }
@@ -55,7 +55,7 @@ export default function Home() {
   async function handleStatusChange(id: number, newStatus: MovieStatus) {
     try {
       await updateMovieStatus(id, newStatus);
-      loadMovies(page, selectedGenreId);
+      loadMovies(currentPage, searchQuery);
     } catch (err: any) {
       alert('Failed to update status');
     }
@@ -82,8 +82,21 @@ export default function Home() {
           </button>
         </header>
 
-        {/* Status Tabs & Genre Filters */}
+        {/* Search Bar & Status Tabs */}
         <div className="flex flex-col gap-4 mb-6">
+          <div className="flex gap-4 items-center">
+            <input
+              type="text"
+              placeholder="Search movies by title..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
           <div className="flex gap-2">
             {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
               <button
@@ -97,60 +110,45 @@ export default function Home() {
               </button>
             ))}
           </div>
-
-          {/* Genre Filter Pills */}
-          {genres.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">Genres:</span>
-              <button
-                onClick={() => { setSelectedGenreId(undefined); setPage(1); }}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                  selectedGenreId === undefined
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-                }`}
-              >
-                All Genres
-              </button>
-              {genres.map((genre) => (
-                <button
-                  key={genre.id}
-                  onClick={() => { setSelectedGenreId(genre.id); setPage(1); }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                    selectedGenreId === genre.id
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-                  }`}
-                >
-                  {genre.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Grid Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMovies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} onDelete={handleDelete} onStatusChange={handleStatusChange} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-16 text-slate-500">Loading movies...</div>
+        ) : error ? (
+          <div className="p-4 bg-red-950/50 border border-red-800 rounded-lg text-red-300 text-sm">🚨 {error}</div>
+        ) : filteredMovies.length === 0 ? (
+          <div className="text-center py-16 bg-slate-800/40 rounded-xl border border-slate-800 text-slate-400">
+            No movies found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMovies.map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Pagination Controls */}
         <div className="flex justify-between items-center mt-8 pt-4 border-t border-slate-800">
           <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-50 hover:bg-slate-700 transition"
           >
             Previous
           </button>
           <span className="text-sm text-slate-400">
-            Page {page} of {totalPages || 1}
+            Page {currentPage} of {totalPages || 1}
           </span>
           <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
             className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-50 hover:bg-slate-700 transition"
           >
             Next
@@ -158,7 +156,11 @@ export default function Home() {
         </div>
       </div>
 
-      <AddMovieModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onMovieAdded={() => loadMovies(page, selectedGenreId)} />
+      <AddMovieModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onMovieAdded={() => loadMovies(currentPage, searchQuery)}
+      />
     </main>
   );
 }
