@@ -12,11 +12,37 @@ interface MovieCardProps {
 
 export default function MovieCard({ movie, onDelete, onStatusChange }: MovieCardProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const nextStatus = movie.status === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
 
   return (
     <>
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-500 transition">
+      <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-500 transition">
+        {/* Delete Confirmation Overlay */}
+        {isConfirmingDelete && (
+          <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm rounded-xl z-20 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+            <p className="text-sm font-semibold text-white mb-2">Delete &quot;{movie.title}&quot;?</p>
+            <p className="text-xs text-slate-400 mb-4">This action cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  onDelete(movie.id);
+                  setIsConfirmingDelete(false);
+                }}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition"
+              >
+                Yes, Delete
+              </button>
+              <button
+                onClick={() => setIsConfirmingDelete(false)}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
           <div className="flex justify-between items-start mb-2">
             <h3 className="text-xl font-bold text-white">{movie.title}</h3>
@@ -33,7 +59,7 @@ export default function MovieCard({ movie, onDelete, onStatusChange }: MovieCard
                 {movie.status === 'WATCHED' ? 'Watched' : 'To Watch'}
               </button>
               <button
-                onClick={() => onDelete(movie.id)}
+                onClick={() => setIsConfirmingDelete(true)}
                 className="text-slate-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition"
                 title="Delete movie"
               >
