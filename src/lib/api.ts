@@ -2,8 +2,11 @@ import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
-export async function fetchMovies(): Promise<Movie[]> {
-  const res = await fetch(`${API_BASE_URL}/movies`);
+export async function fetchMovies(page = 1, limit = 6, genreId?: number) {
+  let url = `http://localhost:3000/movies?page=${page}&limit=${limit}`;
+  if (genreId) url += `&genreId=${genreId}`;
+  
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch movies');
   return res.json();
 }

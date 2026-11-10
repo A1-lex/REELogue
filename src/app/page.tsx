@@ -1,23 +1,37 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Movie, MovieStatus } from '@/types';
+import { Movie, MovieStatus, Genre } from '@/types';
 import { fetchMovies, deleteMovie, updateMovieStatus } from '@/lib/api';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 
 export default function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [selectedGenreId, setSelectedGenreId] = useState<number | undefined>(undefined);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<MovieStatus | 'ALL'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  async function loadMovies() {
+  // Fetch genres once on mount
+  useEffect(() => {
+    fetch('http://localhost:3000/genres')
+      .then((res) => res.json())
+      .then((data) => setGenres(data))
+      .catch((err) => console.error('Failed to load genres', err));
+  }, []);
+
+  async function loadMovies(currentPage = 1, genreId = selectedGenreId) {
     try {
       setLoading(true);
-      const data = await fetchMovies();
-      setMovies(data);
+      const res = await fetchMovies(currentPage, 6, genreId);
+      setMovies(res.data);
+      setTotalPages(res.meta.totalPages);
+      setPage(res.meta.page);
     } catch (err: any) {
       setError(err.message || 'Failed to connect to backend server');
     } finally {
@@ -26,13 +40,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadMovies();
-  }, []);
+    loadMovies(page, selectedGenreId);
+  }, [page, selectedGenreId]);
 
   async function handleDelete(id: number) {
     try {
       await deleteMovie(id);
-      setMovies((prev) => prev.filter((m) => m.id !== id));
+      loadMovies(page, selectedGenreId);
     } catch (err: any) {
       alert('Failed to delete movie');
     }
@@ -40,10 +54,10 @@ export default function Home() {
 
   async function handleStatusChange(id: number, newStatus: MovieStatus) {
     try {
-      const updated = await updateMovieStatus(id, newStatus);
-      setMovies((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      await updateMovieStatus(id, newStatus);
+      loadMovies(page, selectedGenreId);
     } catch (err: any) {
-      alert('Failed to update movie status');
+      alert('Failed to update status');
     }
   }
 
@@ -55,82 +69,96 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b border-slate-800 gap-4">
+        <header className="flex justify-between items-center mb-8 pb-6 border-b border-slate-800">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">
-              🎬 Watched Movies Tracker
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Keep track of your watchlist and favorite genres.
-            </p>
+            <h1 className="text-3xl font-extrabold text-white">🎬 Watched Movies Tracker</h1>
+            <p className="text-slate-400 text-sm mt-1">Keep track of your watchlist and favorite genres.</p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg transition flex items-center gap-2"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg transition"
           >
-            <span>+ Add Movie</span>
+            + Add Movie
           </button>
         </header>
 
-        {/* Filter Navigation Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                activeTab === tab
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              }`}
-            >
-              {tab === 'ALL' && `All (${movies.length})`}
-              {tab === 'TO_WATCH' &&
-                `To Watch (${movies.filter((m) => m.status === 'TO_WATCH').length})`}
-              {tab === 'WATCHED' &&
-                `Watched (${movies.filter((m) => m.status === 'WATCHED').length})`}
-            </button>
+        {/* Status Tabs & Genre Filters */}
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex gap-2">
+            {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Genre Filter Pills */}
+          {genres.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">Genres:</span>
+              <button
+                onClick={() => { setSelectedGenreId(undefined); setPage(1); }}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                  selectedGenreId === undefined
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                }`}
+              >
+                All Genres
+              </button>
+              {genres.map((genre) => (
+                <button
+                  key={genre.id}
+                  onClick={() => { setSelectedGenreId(genre.id); setPage(1); }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                    selectedGenreId === genre.id
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  {genre.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Grid Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredMovies.map((movie) => (
+            <MovieCard key={movie.id} movie={movie} onDelete={handleDelete} onStatusChange={handleStatusChange} />
           ))}
         </div>
 
-        {/* Content Area */}
-        {loading && (
-          <div className="text-center py-16 text-slate-500">
-            Loading movies from NestJS backend...
-          </div>
-        )}
-
-        {error && (
-          <div className="p-4 bg-red-950/50 border border-red-800 rounded-lg text-red-300 text-sm">
-            🚨 Error: {error}. Make sure your backend server is running on `http://localhost:3000`.
-          </div>
-        )}
-
-        {!loading && !error && filteredMovies.length === 0 && (
-          <div className="text-center py-16 bg-slate-800/40 rounded-xl border border-slate-800">
-            <p className="text-slate-400 mb-1">No movies found in this list.</p>
-          </div>
-        )}
-
-        {!loading && !error && filteredMovies.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMovies.map((movie) => (
-              <MovieCard
-                key={movie.id}
-                movie={movie}
-                onDelete={handleDelete}
-                onStatusChange={handleStatusChange}
-              />
-            ))}
-          </div>
-        )}
+        {/* Pagination Controls */}
+        <div className="flex justify-between items-center mt-8 pt-4 border-t border-slate-800">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(p - 1, 1))}
+            className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-50 hover:bg-slate-700 transition"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-slate-400">
+            Page {page} of {totalPages || 1}
+          </span>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-4 py-2 bg-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-50 hover:bg-slate-700 transition"
+          >
+            Next
+          </button>
+        </div>
       </div>
 
-      <AddMovieModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onMovieAdded={loadMovies}
-      />
+      <AddMovieModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onMovieAdded={() => loadMovies(page, selectedGenreId)} />
     </main>
   );
 }
