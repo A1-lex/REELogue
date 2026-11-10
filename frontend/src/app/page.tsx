@@ -1,193 +1,194 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Movie, MovieStatus, Genre } from '@/types';
-import { fetchMovies, fetchGenres, deleteMovie, updateMovieStatus } from '@/lib/api';
+import { useState, useEffect } from 'react';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
+import TrailerModal from '@/components/TrailerModal';
+import * as api from '@/lib/api';
 
 export default function Home() {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [genres, setGenres] = useState<Genre[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [movies, setMovies] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'TO_WATCH' | 'WATCHED'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [activeTrailer, setActiveTrailer] = useState<{ url: string; title: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Pagination & Filters state
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedGenreId, setSelectedGenreId] = useState<number | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<MovieStatus | 'ALL'>('ALL');
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-
-  useEffect(() => {
-    fetchGenres().then(setGenres).catch(() => {});
-  }, []);
-
-  async function loadMovies(page = 1, search = searchQuery) {
+  const loadMovies = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetchMovies(page, 6, search);
-      setMovies(res.data);
-      setTotalPages(res.meta.totalPages);
-      setCurrentPage(res.meta.page);
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect to backend server');
+      const statusFilter = activeTab === 'ALL' ? undefined : activeTab;
+      // Support whichever fetch function name exists in your api.ts lib
+      const fetchFn = (api as any).getMovies || (api as any).fetchMovies;
+      const res = await fetchFn(currentPage, searchQuery, statusFilter);
+      setMovies(res.data || res.movies || []);
+      setTotalPages(res.meta?.totalPages || res.totalPages || 1);
+    } catch (err) {
+      console.error('Failed to fetch movies:', err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadMovies(currentPage, searchQuery);
-  }, [currentPage, searchQuery]);
+    loadMovies();
+  }, [searchQuery, activeTab, currentPage]);
 
-  async function handleDelete(id: number) {
-    try {
-      await deleteMovie(id);
-      loadMovies(currentPage, searchQuery);
-    } catch (err: any) {
-      alert('Failed to delete movie');
+  const handleDelete = async (id: number | string) => {
+    if (confirm('Are you sure you want to delete this movie?')) {
+      const deleteFn = (api as any).deleteMovie;
+      await deleteFn(Number(id));
+      loadMovies();
     }
-  }
+  };
 
-  async function handleStatusChange(id: number, newStatus: MovieStatus) {
-    try {
-      await updateMovieStatus(id, newStatus);
-      loadMovies(currentPage, searchQuery);
-    } catch (err: any) {
-      alert('Failed to update status');
-    }
-  }
-
-  const filteredMovies = movies.filter((movie) => {
-    if (activeTab === 'ALL') return true;
-    return movie.status === activeTab;
-  });
+  const handleStatusToggle = async (id: number | string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
+    const statusFn = (api as any).updateMovieStatus;
+    await statusFn(Number(id), nextStatus);
+    loadMovies();
+  };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-8 relative overflow-hidden">
-      {/* Background Radial Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-600/10 blur-[120px] pointer-events-none rounded-full" />
-
-      <div className="max-w-5xl mx-auto relative z-10">
-        <header className="flex justify-between items-center mb-8 pb-6 border-b border-slate-800/80">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-              <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                REELogue
-              </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
-                v1.0
-              </span>
+    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 sm:px-6 py-6 pb-24 md:pb-8 max-w-5xl mx-auto">
+      {/* Header */}
+      <header className="flex items-start justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              REELogue
             </h1>
-            <p className="text-slate-400 text-sm mt-1">Your watch history, beautifully told.</p>
+            <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/50 px-2 py-0.5 rounded-full font-mono">
+              v1.0
+            </span>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            + Add Movie
-          </button>
-        </header>
-
-        {/* Search Bar & Status Tabs */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6 items-stretch sm:items-center justify-between">
-          <div className="relative flex-1">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
-            <input
-              type="text"
-              placeholder="Search movies by title..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/60 transition"
-            />
-          </div>
-
-          <div className="flex bg-slate-900/80 p-1 border border-slate-800 rounded-xl">
-            {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                  activeTab === tab
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
-              >
-                {tab === 'ALL' ? 'All' : tab === 'TO_WATCH' ? 'To Watch' : 'Watched'}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Your watch history, beautifully told.
+          </p>
         </div>
 
-        {/* Grid Display & Loading Skeleton */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="h-48 bg-slate-900/40 border border-slate-800/80 rounded-xl p-5 animate-pulse flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="h-5 bg-slate-800 rounded w-2/3"></div>
-                  <div className="h-4 bg-slate-800/60 rounded w-1/3"></div>
-                </div>
-                <div className="h-4 bg-slate-800/60 rounded w-full"></div>
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="p-4 bg-red-950/40 border border-red-800/80 rounded-xl text-red-300 text-sm">
-            🚨 {error}
-          </div>
-        ) : filteredMovies.length === 0 ? (
-          <div className="text-center py-16 bg-slate-900/40 rounded-xl border border-slate-800/80 text-slate-400">
-            No movies found matching your criteria.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMovies.map((movie) => (
-              <MovieCard
-                key={movie.id}
-                movie={movie}
-                onDelete={handleDelete}
-                onStatusChange={handleStatusChange}
-              />
-            ))}
-          </div>
-        )}
+        {/* Desktop Add Movie Action */}
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="hidden md:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition"
+        >
+          <span>+</span> Add Movie
+        </button>
+      </header>
 
-        {/* Pagination Controls */}
-        <div className="flex justify-between items-center mt-8 pt-4 border-t border-slate-800/80">
+      {/* Search Bar & 3-Column Segmented Status Filters */}
+      <section className="space-y-3 mb-6">
+        <div className="relative">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+          <input
+            type="search"
+            placeholder="Search movies by title..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 transition"
+          />
+        </div>
+
+        <div
+          role="group"
+          aria-label="Filter movies by viewing status"
+          className="grid grid-cols-3 gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl"
+        >
+          {(['ALL', 'TO_WATCH', 'WATCHED'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+              }}
+              className={`min-h-[40px] px-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                activeTab === tab
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+            >
+              {tab === 'ALL' ? 'All' : tab === 'TO_WATCH' ? 'To Watch' : 'Watched'}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Movie Grid & Skeleton Loading */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-44 bg-slate-900/40 border border-slate-800/60 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      ) : movies.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900/30 border border-slate-800/50 rounded-2xl">
+          <p className="text-slate-400 text-sm">No movies found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {movies.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onDelete={handleDelete}
+              onStatusChange={handleStatusToggle}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-8 pt-4 border-t border-slate-800/60">
           <button
-            disabled={currentPage <= 1}
+            disabled={currentPage === 1}
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-            className="px-4 py-2 bg-slate-900/60 border border-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-800 transition"
+            className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-300 disabled:opacity-40 hover:bg-slate-800 transition"
           >
             Previous
           </button>
-          <span className="text-sm text-slate-400 font-medium">
-            Page {currentPage} of {totalPages || 1}
+          <span className="text-xs text-slate-400">
+            Page {currentPage} of {totalPages}
           </span>
           <button
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p) => p + 1)}
-            className="px-4 py-2 bg-slate-900/60 border border-slate-800 text-slate-200 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-800 transition"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-300 disabled:opacity-40 hover:bg-slate-800 transition"
           >
             Next
           </button>
         </div>
-      </div>
+      )}
 
+      {/* Mobile Floating Action Button (FAB) */}
+      <button
+        onClick={() => setIsAddModalOpen(true)}
+        aria-label="Add Movie"
+        className="fixed md:hidden right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex items-center gap-2 bg-indigo-600 active:bg-indigo-500 text-white text-sm font-semibold px-5 py-3.5 rounded-full shadow-2xl shadow-indigo-900/60 active:scale-95 transition"
+      >
+        <span className="text-base font-bold">+</span> Add Movie
+      </button>
+
+      {/* Modals */}
       <AddMovieModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onMovieAdded={() => loadMovies(currentPage, searchQuery)}
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onMovieAdded={loadMovies}
       />
+
+      {activeTrailer && (
+        <TrailerModal
+          isOpen={!!activeTrailer}
+          trailerUrl={activeTrailer.url}
+          movieTitle={activeTrailer.title}
+          onClose={() => setActiveTrailer(null)}
+        />
+      )}
     </main>
   );
 }
