@@ -12,22 +12,28 @@ export class MoviesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @Query('status') status?: WatchStatus,
+    @Query('status') status?: string,       // Changed from WatchStatus to string
     @Query('genreId') genreId?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 6;
-    const genreIdNum = genreId ? parseInt(genreId, 10) : undefined;
+    
+    // Safely parse or discard invalid status strings
+    const validStatus = 
+      status && Object.values(WatchStatus).includes(status as WatchStatus) 
+        ? (status as WatchStatus) 
+        : undefined;
+
+    const genreIdNum = genreId && genreId !== '' ? parseInt(genreId, 10) : undefined;
 
     return this.moviesService.findAll(
       pageNum,
       limitNum,
       search,
-      status,
+      validStatus,
       genreIdNum,
     );
   }
-
 
   @Post()
   create(@Body() createMovieDto: CreateMovieDto) {
