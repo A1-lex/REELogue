@@ -1,21 +1,34 @@
 import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-export async function fetchMovies(
-  page: number = 1,
-  limit: number = 6,
-  search?: string
-): Promise<{ data: Movie[]; meta: any }> {
-  const params = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-  });
-  if (search) {
-    params.append('search', search);
-  }
+// Strip a trailing slash so we never build URLs like "...com//movies"
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-  const res = await fetch(`${API_BASE_URL}/movies?${params.toString()}`);
-  if (!res.ok) throw new Error('Failed to fetch movies');
+export interface MovieQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: MovieStatus;
+}
+
+export interface PaginatedMovies {
+  data: Movie[];
+  meta: { totalPages: number; [key: string]: unknown };
+}
+
+export async function fetchMovies(
+  { page = 1, limit = 6, search, status }: MovieQuery = {},
+): Promise<PaginatedMovies> {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  const trimmed = search?.trim();
+  if (trimmed) params.append('search', trimmed);
+  if (status) params.append('status', status);
+
+  const res = await fetch(`${API_BASE_URL}/movies?${params}`);
+  if (!res.ok) throw new Error(`Failed to fetch movies (${res.status})`);
   return res.json();
 }
 
@@ -36,18 +49,16 @@ export async function createMovie(payload: CreateMoviePayload): Promise<Movie> {
 }
 
 export async function deleteMovie(id: number): Promise<void> {
-  const res = await fetch(`http://localhost:3000/movies/${id}`, {
-    method: 'DELETE',
-  });
+  const res = await fetch(`${API_BASE_URL}/movies/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete movie');
 }
 
 export async function updateMovieStatus(id: number, status: MovieStatus): Promise<Movie> {
-  const res = await fetch(`http://localhost:3000/movies/${id}/status`, {
+  const res = await fetch(`${API_BASE_URL}/movies/${id}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error('Failed to update movie status');
-  return await res.json();
+  return res.json();
 }

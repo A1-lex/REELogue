@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 import TrailerModal from '@/components/TrailerModal';
-import * as api from '@/lib/api';
+import { fetchMovies, deleteMovie, updateMovieStatus } from '@/lib/api';
+import { Movie, MovieStatus } from '@/types';
 
 export default function Home() {
-  const [movies, setMovies] = useState<any[]>([]);
+  const [movies, setMovies] = useState<Movie[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'TO_WATCH' | 'WATCHED'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,12 +20,13 @@ export default function Home() {
   const loadMovies = async () => {
     setLoading(true);
     try {
-      const statusFilter = activeTab === 'ALL' ? undefined : activeTab;
-      // Support whichever fetch function name exists in your api.ts lib
-      const fetchFn = (api as any).getMovies || (api as any).fetchMovies;
-      const res = await fetchFn(currentPage, searchQuery, statusFilter);
-      setMovies(res.data || res.movies || []);
-      setTotalPages(res.meta?.totalPages || res.totalPages || 1);
+      const res = await fetchMovies({
+        page: currentPage,
+        search: searchQuery,
+        status: activeTab === 'ALL' ? undefined : activeTab,
+      });
+      setMovies(res.data);
+      setTotalPages(res.meta.totalPages || 1);
     } catch (err) {
       console.error('Failed to fetch movies:', err);
     } finally {
@@ -38,16 +40,14 @@ export default function Home() {
 
   const handleDelete = async (id: number | string) => {
     if (confirm('Are you sure you want to delete this movie?')) {
-      const deleteFn = (api as any).deleteMovie;
-      await deleteFn(Number(id));
+      await deleteMovie(Number(id));
       loadMovies();
     }
   };
 
   const handleStatusToggle = async (id: number | string, currentStatus: string) => {
-    const nextStatus = currentStatus === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
-    const statusFn = (api as any).updateMovieStatus;
-    await statusFn(Number(id), nextStatus);
+    const nextStatus: MovieStatus = currentStatus === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
+    await updateMovieStatus(Number(id), nextStatus);
     loadMovies();
   };
 
