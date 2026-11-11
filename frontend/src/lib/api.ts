@@ -1,4 +1,10 @@
 import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
+import {
+  cacheGenres,
+  cacheMovies,
+  getCachedGenres,
+  getCachedMovies,
+} from '@/lib/offline-db';
 
 // Strip a trailing slash so we never build URLs like "...com//movies"
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -12,7 +18,13 @@ export interface MovieQuery {
 
 export interface PaginatedMovies {
   data: Movie[];
-  meta: { totalPages: number; [key: string]: unknown };
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    offline?: boolean;
+  };
 }
 
 export async function fetchMovies(
@@ -25,22 +37,71 @@ export async function fetchMovies(
   });
 
   const trimmed = search?.trim();
+
   if (trimmed) params.append('search', trimmed);
   if (status) params.append('status', status);
 
-  const res = await fetch(`${API_BASE_URL}/movies?${params}`, { signal });
+  try {
+    const res = await fetch(`${API_BASE_URL}/movies?${params}`, { signal });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch movies (${res.status})`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch movies (${res.status})`);
+    }
+
+    const result: PaginatedMovies = await res.json();
+
+    await cacheMovies(result.data);
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+
+    let movies = await getCachedMovies();
+
+    if (trimmed) {
+      const query = trimmed.toLowerCase();
+      movies = movies.filter((movie) =>
+        movie.title.toLowerCase().includes(query),
+      );
+    }
+
+    if (status) {
+      movies = movies.filter((movie) => movie.status === status);
+    }
+
+    const total = movies.length;
+    const start = (page - 1) * limit;
+
+    return {
+      data: movies.slice(start, start + limit),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        offline: true,
+      },
+    };
   }
-
-  return res.json();
 }
 
 export async function fetchGenres(): Promise<Genre[]> {
-  const res = await fetch(`${API_BASE_URL}/genres`);
-  if (!res.ok) throw new Error('Failed to fetch genres');
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE_URL}/genres`);
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch genres (${res.status})`);
+    }
+
+    const genres: Genre[] = await res.json();
+    await cacheGenres(genres);
+
+    return genres;
+  } catch {
+    return getCachedGenres();
+  }
 }
 
 export async function createMovie(payload: CreateMoviePayload): Promise<Movie> {

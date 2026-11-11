@@ -1,46 +1,75 @@
-const CACHE_NAME = 'reelogue-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/manifest.json'
-];
+const CACHE_NAME = 'reelogue-v2';
+const APP_SHELL = ['/', '/manifest.json'];
 
-// Install Event: Cache core assets
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
   self.skipWaiting();
 });
 
-// Activate Event: Clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
+      ),
   );
-  clients.claim(); // Fixed from self.claim()
+
+  self.clients.claim();
 });
 
-// Fetch Event: Serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-  // Skip API requests from offline static caching (let API handle its own errors)
-  if (event.request.url.includes('/movies') || event.request.url.includes('/genres')) {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  if (request.method !== 'GET') return;
+
+  // API data is stored in IndexedDB by the application.
+  if (url.pathname.startsWith('/movies') || url.pathname.startsWith('/genres')) {
     return;
   }
 
+  // Do not interfere with YouTube or other cross-origin resources.
+  if (url.origin !== self.location.origin) return;
+
+  // Network-first for page navigation, with the cached root as fallback.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          }
+
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match('/');
+          return cached || Response.error();
+        }),
+    );
+
+    return;
+  }
+
+  // Cache-first for Next.js chunks, CSS, icons, fonts, and other same-origin assets.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => {
-        // Fallback for offline root navigation if needed
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request).then((response) => {
+        if (!response || !response.ok) return response;
+
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+
+        return response;
       });
-    })
+    }),
   );
 });

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 import TrailerModal from '@/components/TrailerModal';
-import { fetchMovies, deleteMovie, updateMovieStatus } from '@/lib/api';
+import { fetchMovies, deleteMovie, updateMovieStatus, fetchGenres } from '@/lib/api';
 import { Movie, MovieStatus } from '@/types';
 
 export default function Home() {
@@ -16,6 +16,7 @@ export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeTrailer, setActiveTrailer] = useState<{ url: string; title: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   const loadMovies = async (signal?: AbortSignal) => {
     setLoading(true);
@@ -32,6 +33,7 @@ export default function Home() {
 
       setMovies(res.data);
       setTotalPages(res.meta.totalPages || 1);
+      setIsOffline(Boolean(res.meta.offline));
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
@@ -46,6 +48,22 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const updateNetworkStatus = () => {
+      setIsOffline(!navigator.onLine);
+    };
+
+    updateNetworkStatus();
+
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     const timeoutId = window.setTimeout(() => {
@@ -57,6 +75,12 @@ export default function Home() {
       controller.abort();
     };
   }, [searchQuery, activeTab, currentPage]);
+
+  useEffect(() => {
+    fetchGenres().catch((error) => {
+      console.error('Failed to prepare genres for offline use:', error);
+    });
+  }, []);
 
   const handleDelete = async (id: number | string) => {
     if (confirm('Are you sure you want to delete this movie?')) {
@@ -103,6 +127,20 @@ export default function Home() {
           <span>+</span> Add Movie
         </button>
       </header>
+
+
+      {isOffline && (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-amber-700/50 bg-amber-950/50 px-4 py-3 text-xs text-amber-200"
+        >
+          You're offline. Showing saved data from your last sync. Some
+          features require an internet connection.
+        </div>
+      )}
+
+      {/* Search Bar & 3-Column Segmented Status Filters */}
+      <section className="space-y-3 mb-6"></section>
 
       {/* Search Bar & 3-Column Segmented Status Filters */}
       <section className="space-y-3 mb-6">
