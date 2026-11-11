@@ -3,6 +3,7 @@ import { MoviesService } from './movies.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { WatchStatus } from '@prisma/client';
 import { FindMoviesQueryDto } from './dto/find-movies-query.dto';
+import {UpdateMovieStatusDto} from "./dto/update-movie-status.dto";
 
 @Controller('movies')
 export class MoviesController {
@@ -19,8 +20,11 @@ export class MoviesController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: WatchStatus) {
-    return this.moviesService.updateStatus(id, status);
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMovieStatusDto,
+  ) {
+    return this.moviesService.updateStatus(id, dto.status);
   }
 
   @Delete(':id')
