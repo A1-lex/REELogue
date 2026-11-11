@@ -17,25 +17,45 @@ export default function Home() {
   const [activeTrailer, setActiveTrailer] = useState<{ url: string; title: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadMovies = async () => {
+  const loadMovies = async (signal?: AbortSignal) => {
     setLoading(true);
+
     try {
-      const res = await fetchMovies({
-        page: currentPage,
-        search: searchQuery,
-        status: activeTab === 'ALL' ? undefined : activeTab,
-      });
+      const res = await fetchMovies(
+        {
+          page: currentPage,
+          search: searchQuery,
+          status: activeTab === 'ALL' ? undefined : activeTab,
+        },
+        signal,
+      );
+
       setMovies(res.data);
       setTotalPages(res.meta.totalPages || 1);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+
       console.error('Failed to fetch movies:', err);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadMovies();
+    const controller = new AbortController();
+
+    const timeoutId = window.setTimeout(() => {
+      loadMovies(controller.signal);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [searchQuery, activeTab, currentPage]);
 
   const handleDelete = async (id: number | string) => {

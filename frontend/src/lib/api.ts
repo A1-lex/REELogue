@@ -17,6 +17,7 @@ export interface PaginatedMovies {
 
 export async function fetchMovies(
   { page = 1, limit = 6, search, status }: MovieQuery = {},
+  signal?: AbortSignal,
 ): Promise<PaginatedMovies> {
   const params = new URLSearchParams({
     page: String(page),
@@ -27,8 +28,12 @@ export async function fetchMovies(
   if (trimmed) params.append('search', trimmed);
   if (status) params.append('status', status);
 
-  const res = await fetch(`${API_BASE_URL}/movies?${params}`);
-  if (!res.ok) throw new Error(`Failed to fetch movies (${res.status})`);
+  const res = await fetch(`${API_BASE_URL}/movies?${params}`, { signal });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch movies (${res.status})`);
+  }
+
   return res.json();
 }
 
