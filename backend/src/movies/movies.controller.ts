@@ -12,13 +12,22 @@ export class MoviesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('status') status?: WatchStatus,
+    @Query('genreId') genreId?: string,
   ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 6;
+    const genreIdNum = genreId ? parseInt(genreId, 10) : undefined;
+
     return this.moviesService.findAll(
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 6,
+      pageNum,
+      limitNum,
       search,
+      status,
+      genreIdNum,
     );
   }
+
 
   @Post()
   create(@Body() createMovieDto: CreateMovieDto) {

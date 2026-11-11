@@ -1,70 +1,90 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WatchStatus, Prisma } from '@prisma/client';
 import { CreateMovieDto } from './dto/create-movie.dto';
-import { WatchStatus } from '@prisma/client';
 
 @Injectable()
 export class MoviesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(createMovieDto: CreateMovieDto) {
-    const { genreIds, ...movieData } = createMovieDto;
+  async create(dto: CreateMovieDto) {
+    const { genreIds, ...movieData } = dto;
+
     return this.prisma.movie.create({
       data: {
         ...movieData,
         genres: {
-          connect: genreIds.map((id) => ({ id })),
+          connect: genreIds?.map((id) => ({ id })) || [],
         },
       },
       include: { genres: true },
     });
   }
 
-async findAll(page: number = 1, limit: number = 6, search?: string) {
-  const skip = (page - 1) * limit;
+  async findAll(
+    page: number = 1,
+    limit: number = 6,
+    search?: string,
+    status?: WatchStatus,
+    genreId?: number,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.MovieWhereInput = {};
 
-  const where = search
-    ? {
-        title: {
-          contains: search,
-          mode: 'insensitive' as const,
-        },
-      }
-    : {};
+    if (search && search.trim() !== '') {
+      where.title = {
+        contains: search.trim(),
+        mode: 'insensitive',
+      };
+    }
 
-  const [data, total] = await Promise.all([
-    this.prisma.movie.findMany({
-      where,
-      skip,
-      take: limit,
-      include: { genres: true },
-      orderBy: { createdAt: 'desc' },
-    }),
-    this.prisma.movie.count({ where }),
-  ]);
+    if (status) {
+      where.status = status;
+    }
 
-  return {
-    data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
+    if (genreId) {
+      where.genres = {
+        some: { id: genreId },
+      };
+    }
 
-  async remove(id: number) {
-    return this.prisma.movie.delete({
-      where: { id },
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.movie.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { genres: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.movie.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
   }
 
   async updateStatus(id: number, status: WatchStatus) {
+    const movie = await this.prisma.movie.findUnique({ where: { id } });
+    if (!movie) throw new NotFoundException(`Movie with ID ${id} not found`);
+
     return this.prisma.movie.update({
       where: { id },
       data: { status },
       include: { genres: true },
     });
+  }
+
+  async remove(id: number) {
+    const movie = await this.prisma.movie.findUnique({ where: { id } });
+    if (!movie) throw new NotFoundException(`Movie with ID ${id} not found`);
+
+    return this.prisma.movie.delete({ where: { id } });
   }
 }
