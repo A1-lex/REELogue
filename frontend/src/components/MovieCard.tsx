@@ -8,9 +8,15 @@ interface MovieCardProps {
   movie: Movie;
   onDelete: (id: number) => void;
   onStatusChange: (id: number, newStatus: MovieStatus) => void;
+  isOffline?: boolean;
 }
 
-export default function MovieCard({ movie, onDelete, onStatusChange }: MovieCardProps) {
+export default function MovieCard({
+  movie,
+  onDelete,
+  onStatusChange,
+  isOffline = false,
+}: MovieCardProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const nextStatus = movie.status === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
@@ -48,20 +54,28 @@ export default function MovieCard({ movie, onDelete, onStatusChange }: MovieCard
             <h3 className="text-xl font-bold text-white">{movie.title}</h3>
             <div className="flex items-center gap-2">
               <button
+                disabled={isOffline}
                 onClick={() => onStatusChange(movie.id, nextStatus)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-full transition cursor-pointer ${
+                aria-disabled={isOffline}
+                title={
+                  isOffline
+                    ? 'Reconnect to change watch status'
+                    : 'Click to toggle watch status'
+                }
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full transition ${
                   movie.status === 'WATCHED'
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900'
                     : 'bg-amber-950 text-amber-400 border border-amber-800 hover:bg-amber-900'
-                }`}
-                title="Click to toggle watch status"
+                } ${isOffline ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {movie.status === 'WATCHED' ? 'Watched' : 'To Watch'}
               </button>
               <button
+                disabled={isOffline}
                 onClick={() => setIsConfirmingDelete(true)}
-                className="text-slate-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition"
-                title="Delete movie"
+                aria-disabled={isOffline}
+                title={isOffline ? 'Reconnect to delete this movie' : 'Delete movie'}
+                className="text-slate-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ✕
               </button>
@@ -100,8 +114,11 @@ export default function MovieCard({ movie, onDelete, onStatusChange }: MovieCard
 
           {movie.trailerUrl && (
             <button
+              disabled={isOffline}
               onClick={() => setIsTrailerOpen(true)}
-              className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition"
+              aria-disabled={isOffline}
+              title={isOffline ? 'Trailer playback requires an internet connection' : 'Watch trailer'}
+              className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition disabled:cursor-not-allowed disabled:opacity-40"
             >
               ▶ Watch Trailer
             </button>

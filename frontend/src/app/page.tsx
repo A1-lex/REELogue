@@ -64,6 +64,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (isOffline) {
+      setIsAddModalOpen(false);
+    }
+  }, [isOffline]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     const timeoutId = window.setTimeout(() => {
@@ -83,6 +89,7 @@ export default function Home() {
   }, []);
 
   const handleDelete = async (id: number | string) => {
+    if (isOffline) return;
     if (confirm('Are you sure you want to delete this movie?')) {
       await deleteMovie(Number(id));
       loadMovies();
@@ -93,6 +100,7 @@ export default function Home() {
     id: number | string,
     newStatus: MovieStatus,
   ) => {
+    if (isOffline) return;
     try {
       await updateMovieStatus(Number(id), newStatus);
       await loadMovies();
@@ -121,26 +129,24 @@ export default function Home() {
 
         {/* Desktop Add Movie Action */}
         <button
+          disabled={isOffline}
           onClick={() => setIsAddModalOpen(true)}
-          className="hidden md:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition"
+          title={isOffline ? 'Reconnect to add a movie' : 'Add movie'}
+          className="hidden md:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-indigo-600"
         >
           <span>+</span> Add Movie
         </button>
       </header>
-
 
       {isOffline && (
         <div
           role="status"
           className="mb-4 rounded-xl border border-amber-700/50 bg-amber-950/50 px-4 py-3 text-xs text-amber-200"
         >
-          You're offline. Showing saved data from your last sync. Some
-          features require an internet connection.
+          You&apos;re offline. Showing saved data from your last sync. Reconnect to
+          add, update, or delete movies and to play trailers.
         </div>
       )}
-
-      {/* Search Bar & 3-Column Segmented Status Filters */}
-      <section className="space-y-3 mb-6"></section>
 
       {/* Search Bar & 3-Column Segmented Status Filters */}
       <section className="space-y-3 mb-6">
@@ -201,6 +207,7 @@ export default function Home() {
               movie={movie}
               onDelete={handleDelete}
               onStatusChange={handleStatusToggle}
+              isOffline={isOffline}
             />
           ))}
         </div>
@@ -231,19 +238,23 @@ export default function Home() {
 
       {/* Mobile Floating Action Button (FAB) */}
       <button
+        disabled={isOffline}
         onClick={() => setIsAddModalOpen(true)}
         aria-label="Add Movie"
-        className="fixed md:hidden right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex items-center gap-2 bg-indigo-600 active:bg-indigo-500 text-white text-sm font-semibold px-5 py-3.5 rounded-full shadow-2xl shadow-indigo-900/60 active:scale-95 transition"
+        title={isOffline ? 'Reconnect to add a movie' : 'Add movie'}
+        className="fixed md:hidden right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex items-center gap-2 bg-indigo-600 active:bg-indigo-500 text-white text-sm font-semibold px-5 py-3.5 rounded-full shadow-2xl shadow-indigo-900/60 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="text-base font-bold">+</span> Add Movie
       </button>
 
       {/* Modals */}
-      <AddMovieModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onMovieAdded={loadMovies}
-      />
+      {!isOffline && (
+        <AddMovieModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onMovieAdded={loadMovies}
+        />
+      )}
 
       {activeTrailer && (
         <TrailerModal
