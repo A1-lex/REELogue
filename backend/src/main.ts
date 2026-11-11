@@ -6,8 +6,12 @@ async function bootstrap() {
 
   // Enable CORS for the frontend
   app.enableCors({
-    origin: 'http://localhost:3001', // Next.js default port
-    methods: 'GET, HEAD, PUT, PATCH, POST, DELETE',
+    origin: [
+              'http://localhost:3001', // Next.js default port
+              'http://localhost:3000', // Backend default port
+              'https://reelogue.vercel.app',  // Vercel deployment URL
+            ],
+    methods: 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS',
     credentials: true,
   });
 
