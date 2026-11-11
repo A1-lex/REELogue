@@ -1,7 +1,6 @@
 import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
 
-const API_BASE_URL = 'http://localhost:3000';
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 export async function fetchMovies(
   page: number = 1,
   limit: number = 6,
