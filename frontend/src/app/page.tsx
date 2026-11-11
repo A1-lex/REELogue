@@ -65,10 +65,16 @@ export default function Home() {
     }
   };
 
-  const handleStatusToggle = async (id: number | string, currentStatus: string) => {
-    const nextStatus: MovieStatus = currentStatus === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
-    await updateMovieStatus(Number(id), nextStatus);
-    loadMovies();
+  const handleStatusToggle = async (
+    id: number | string,
+    newStatus: MovieStatus,
+  ) => {
+    try {
+      await updateMovieStatus(Number(id), newStatus);
+      await loadMovies();
+    } catch (error) {
+      console.error('Failed to update movie status:', error);
+    }
   };
 
   return (
