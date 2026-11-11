@@ -23,7 +23,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.claim();
+  clients.claim(); // Fixed from self.claim()
 });
 
 // Fetch Event: Serve from cache, fallback to network
