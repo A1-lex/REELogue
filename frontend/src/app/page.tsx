@@ -10,6 +10,7 @@ import {
   deleteMovie,
   updateMovieStatus,
   syncPendingMovieCreates,
+  refreshOfflineMovieSnapshot,
 } from '@/lib/api';
 import { Movie, MovieStatus } from '@/types';
 
@@ -55,6 +56,12 @@ export default function Home() {
 
   const syncAndReload = async () => {
     const result = await syncPendingMovieCreates();
+
+    try {
+      await refreshOfflineMovieSnapshot();
+    } catch (error) {
+      console.error('Failed to refresh offline movie snapshot:', error);
+    }
 
     if (result.synced > 0 || result.failed > 0) {
       await loadMovies();
@@ -106,7 +113,12 @@ export default function Home() {
     if (isOffline) return;
     if (confirm('Are you sure you want to delete this movie?')) {
       await deleteMovie(Number(id));
-      loadMovies();
+      try {
+        await refreshOfflineMovieSnapshot();
+      } catch (error) {
+        console.error('Failed to refresh offline movie snapshot:', error);
+      }
+      await loadMovies();
     }
   };
 
@@ -117,10 +129,27 @@ export default function Home() {
     if (isOffline) return;
     try {
       await updateMovieStatus(Number(id), newStatus);
+      try {
+        await refreshOfflineMovieSnapshot();
+      } catch (error) {
+        console.error('Failed to refresh offline movie snapshot:', error);
+      }
       await loadMovies();
     } catch (error) {
       console.error('Failed to update movie status:', error);
     }
+  };
+
+  const handleMovieAdded = async () => {
+    if (navigator.onLine) {
+      try {
+        await refreshOfflineMovieSnapshot();
+      } catch (error) {
+        console.error('Failed to refresh offline movie snapshot:', error);
+      }
+    }
+
+    await loadMovies();
   };
 
   return (
@@ -263,7 +292,7 @@ export default function Home() {
         isOpen={isAddModalOpen}
         isOffline={isOffline}
         onClose={() => setIsAddModalOpen(false)}
-        onMovieAdded={loadMovies}
+        onMovieAdded={handleMovieAdded}
       />
 
       {activeTrailer && (

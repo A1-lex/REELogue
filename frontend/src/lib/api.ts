@@ -9,6 +9,7 @@ import {
   markPendingMovieCreateFailed,
   putCachedMovie,
   queueMovieCreate,
+  replaceServerMovieSnapshot,
 } from '@/lib/offline-db';
 
 // Strip a trailing slash so we never build URLs like "...com//movies"
@@ -200,4 +201,34 @@ export async function updateMovieStatus(id: number, status: MovieStatus): Promis
   });
   if (!res.ok) throw new Error('Failed to update movie status');
   return res.json();
+}
+
+export async function refreshOfflineMovieSnapshot(): Promise<number> {
+  if (!navigator.onLine) return 0;
+
+  const limit = 50;
+  let page = 1;
+  let totalPages = 1;
+  const allMovies: Movie[] = [];
+
+  do {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+
+    const res = await fetch(`${API_BASE_URL}/movies?${params}`);
+
+    if (!res.ok) {
+      throw new Error(`Failed to refresh offline snapshot (${res.status})`);
+    }
+
+    const result: PaginatedMovies = await res.json();
+    allMovies.push(...result.data);
+    totalPages = result.meta.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  await replaceServerMovieSnapshot(allMovies);
+  return allMovies.length;
 }

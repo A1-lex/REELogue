@@ -209,6 +209,34 @@ export async function markPendingMovieCreateFailed(
   db.close();
 }
 
+export async function replaceServerMovieSnapshot(
+  serverMovies: Movie[],
+): Promise<void> {
+  const db = await openDb();
+  const transaction = db.transaction(MOVIES_STORE, 'readwrite');
+  const store = transaction.objectStore(MOVIES_STORE);
+  const existingRequest = store.getAll();
+  const existing = await requestResult<Movie[]>(existingRequest);
+
+  const localMovies = existing.filter(
+    (movie) =>
+      typeof movie.id === 'string' &&
+      (movie.syncState === 'PENDING_CREATE' ||
+        movie.syncState === 'SYNC_FAILED'),
+  );
+
+  store.clear();
+
+  serverMovies.forEach((movie) => {
+    store.put({ ...movie, syncState: 'SYNCED' });
+  });
+
+  localMovies.forEach((movie) => store.put(movie));
+
+  await transactionComplete(transaction);
+  db.close();
+}
+
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
