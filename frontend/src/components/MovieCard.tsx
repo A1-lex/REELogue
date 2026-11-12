@@ -6,8 +6,8 @@ import TrailerModal from '@/components/TrailerModal';
 
 interface MovieCardProps {
   movie: Movie;
-  onDelete: (id: number) => void;
-  onStatusChange: (id: number, newStatus: MovieStatus) => void;
+  onDelete: (id: number | string) => void;
+  onStatusChange: (id: number | string, newStatus: MovieStatus) => void;
   isOffline?: boolean;
 }
 
@@ -20,6 +20,23 @@ export default function MovieCard({
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const nextStatus = movie.status === 'WATCHED' ? 'TO_WATCH' : 'WATCHED';
+
+  const mutationDisabled =
+    isOffline || movie.syncState === 'PENDING_CREATE' || movie.syncState === 'SYNC_FAILED';
+
+  const getStatusTooltip = () => {
+    if (isOffline) return 'Reconnect to change watch status';
+    if (movie.syncState === 'PENDING_CREATE') return 'Waiting to sync before status can be changed';
+    if (movie.syncState === 'SYNC_FAILED') return 'Sync failed; resolve sync before changing status';
+    return 'Click to toggle watch status';
+  };
+
+  const getDeleteTooltip = () => {
+    if (isOffline) return 'Reconnect to delete this movie';
+    if (movie.syncState === 'PENDING_CREATE') return 'Waiting to sync before movie can be deleted';
+    if (movie.syncState === 'SYNC_FAILED') return 'Sync failed; resolve sync before deletion';
+    return 'Delete movie';
+  };
 
   return (
     <>
@@ -51,30 +68,38 @@ export default function MovieCard({
 
         <div>
           <div className="flex justify-between items-start mb-2">
-            <h3 className="text-xl font-bold text-white">{movie.title}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-xl font-bold text-white">{movie.title}</h3>
+              {movie.syncState === 'PENDING_CREATE' && (
+                <span className="rounded-full border border-amber-700 bg-amber-950 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                  Waiting to sync
+                </span>
+              )}
+              {movie.syncState === 'SYNC_FAILED' && (
+                <span className="rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-[10px] font-semibold text-red-300">
+                  Sync failed
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <button
-                disabled={isOffline}
+                disabled={mutationDisabled}
                 onClick={() => onStatusChange(movie.id, nextStatus)}
-                aria-disabled={isOffline}
-                title={
-                  isOffline
-                    ? 'Reconnect to change watch status'
-                    : 'Click to toggle watch status'
-                }
+                aria-disabled={mutationDisabled}
+                title={getStatusTooltip()}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full transition ${
                   movie.status === 'WATCHED'
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900'
                     : 'bg-amber-950 text-amber-400 border border-amber-800 hover:bg-amber-900'
-                } ${isOffline ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                } ${mutationDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {movie.status === 'WATCHED' ? 'Watched' : 'To Watch'}
               </button>
               <button
-                disabled={isOffline}
+                disabled={mutationDisabled}
                 onClick={() => setIsConfirmingDelete(true)}
-                aria-disabled={isOffline}
-                title={isOffline ? 'Reconnect to delete this movie' : 'Delete movie'}
+                aria-disabled={mutationDisabled}
+                title={getDeleteTooltip()}
                 className="text-slate-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ✕

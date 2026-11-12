@@ -6,11 +6,17 @@ import { fetchGenres, createMovie } from '@/lib/api';
 
 interface AddMovieModalProps {
   isOpen: boolean;
+  isOffline?: boolean;
   onClose: () => void;
-  onMovieAdded: () => void;
+  onMovieAdded: () => void | Promise<void>;
 }
 
-export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovieModalProps) {
+export default function AddMovieModal({
+  isOpen,
+  isOffline = false,
+  onClose,
+  onMovieAdded,
+}: AddMovieModalProps) {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [selectedGenreIds, setSelectedGenreIds] = useState<number[]>([]);
   const [title, setTitle] = useState('');
@@ -61,18 +67,22 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
       setSubmitting(true);
       setError(null);
       await createMovie({
-        title,
-        description: description || undefined,
+        title: title.trim(),
+        description: description.trim() || undefined,
         status,
         rating: Number(rating),
-        trailerUrl: trailerUrl || undefined,
+        trailerUrl: trailerUrl.trim() || undefined,
         genreIds: selectedGenreIds,
       });
 
       setTitle('');
       setDescription('');
       setTrailerUrl('');
-      onMovieAdded();
+      setStatus('TO_WATCH');
+      setRating(5);
+      setSelectedGenreIds([]);
+
+      await onMovieAdded();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to add movie');
@@ -93,6 +103,12 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }: AddMovi
             ✕
           </button>
         </div>
+
+        {isOffline && (
+          <div className="mb-4 rounded-lg border border-amber-700/50 bg-amber-950/50 p-3 text-xs text-amber-200">
+            This movie will be saved on this device and synchronized when you reconnect.
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3 bg-red-950/60 border border-red-800 rounded-lg text-red-300 text-xs">

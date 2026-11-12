@@ -2,8 +2,13 @@ import { Movie, Genre, CreateMoviePayload, MovieStatus } from '@/types';
 import {
   cacheGenres,
   cacheMovies,
+  completePendingMovieCreate,
   getCachedGenres,
   getCachedMovies,
+  getPendingMovieCreates,
+  markPendingMovieCreateFailed,
+  putCachedMovie,
+  queueMovieCreate,
 } from '@/lib/offline-db';
 
 // Strip a trailing slash so we never build URLs like "...com//movies"
@@ -104,14 +109,82 @@ export async function fetchGenres(): Promise<Genre[]> {
   }
 }
 
-export async function createMovie(payload: CreateMoviePayload): Promise<Movie> {
-  const res = await fetch(`${API_BASE_URL}/movies`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error('Failed to create movie');
-  return res.json();
+export async function createMovie(
+  payload: CreateMoviePayload,
+): Promise<Movie> {
+  if (!navigator.onLine) {
+    return queueMovieCreate(payload);
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/movies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to create movie (${res.status})`);
+    }
+
+    const movie: Movie = await res.json();
+    const syncedMovie = { ...movie, syncState: 'SYNCED' as const };
+    await putCachedMovie(syncedMovie);
+    return syncedMovie;
+  } catch (error) {
+    // Queue only network failures. HTTP 400/409 errors should remain visible.
+    if (error instanceof TypeError) {
+      return queueMovieCreate(payload);
+    }
+
+    throw error;
+  }
+}
+
+export async function syncPendingMovieCreates(): Promise<{
+  synced: number;
+  failed: number;
+}> {
+  if (!navigator.onLine) {
+    return { synced: 0, failed: 0 };
+  }
+
+  const pendingCreates = await getPendingMovieCreates();
+  let synced = 0;
+  let failed = 0;
+
+  for (const pending of pendingCreates) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/movies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pending.payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Sync failed (${res.status})`);
+      }
+
+      const serverMovie: Movie = await res.json();
+      await completePendingMovieCreate(pending.localId, serverMovie);
+      synced += 1;
+    } catch (error) {
+    console.error(
+      `Failed to synchronize queued movie ${pending.localId}:`,
+      error,
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unknown synchronization error';
+
+    await markPendingMovieCreateFailed(pending, message);
+    failed += 1;
+}
+  }
+
+  return { synced, failed };
 }
 
 export async function deleteMovie(id: number): Promise<void> {

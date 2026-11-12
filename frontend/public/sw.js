@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reelogue-v2';
+const CACHE_NAME = 'reelogue-v3';
 const APP_SHELL = ['/', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -60,16 +60,18 @@ self.addEventListener('fetch', (event) => {
   // Cache-first for Next.js chunks, CSS, icons, fonts, and other same-origin assets.
   event.respondWith(
     caches.match(request).then((cached) => {
-      if (cached) return cached;
+      const networkResponse = fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
 
-      return fetch(request).then((response) => {
-        if (!response || !response.ok) return response;
+          return response;
+        })
+        .catch(() => cached || Response.error());
 
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-
-        return response;
-      });
+      return cached || networkResponse;
     }),
   );
 });

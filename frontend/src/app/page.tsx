@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import MovieCard from '@/components/MovieCard';
 import AddMovieModal from '@/components/AddMovieModal';
 import TrailerModal from '@/components/TrailerModal';
-import { fetchMovies, deleteMovie, updateMovieStatus, fetchGenres } from '@/lib/api';
+import {
+  fetchGenres,
+  fetchMovies,
+  deleteMovie,
+  updateMovieStatus,
+  syncPendingMovieCreates,
+} from '@/lib/api';
 import { Movie, MovieStatus } from '@/types';
 
 export default function Home() {
@@ -47,27 +53,35 @@ export default function Home() {
     }
   };
 
+  const syncAndReload = async () => {
+    const result = await syncPendingMovieCreates();
+
+    if (result.synced > 0 || result.failed > 0) {
+      await loadMovies();
+    }
+  };
+
   useEffect(() => {
-    const updateNetworkStatus = () => {
-      setIsOffline(!navigator.onLine);
+    const handleOffline = () => setIsOffline(true);
+
+    const handleOnline = async () => {
+      setIsOffline(false);
+      await syncAndReload();
     };
 
-    updateNetworkStatus();
+    setIsOffline(!navigator.onLine);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
 
-    window.addEventListener('online', updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
+    if (navigator.onLine) {
+      syncAndReload();
+    }
 
     return () => {
-      window.removeEventListener('online', updateNetworkStatus);
-      window.removeEventListener('offline', updateNetworkStatus);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
-
-  useEffect(() => {
-    if (isOffline) {
-      setIsAddModalOpen(false);
-    }
-  }, [isOffline]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -129,10 +143,9 @@ export default function Home() {
 
         {/* Desktop Add Movie Action */}
         <button
-          disabled={isOffline}
           onClick={() => setIsAddModalOpen(true)}
-          title={isOffline ? 'Reconnect to add a movie' : 'Add movie'}
-          className="hidden md:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-indigo-600"
+          title={isOffline ? 'Add a movie to sync later' : 'Add movie'}
+          className="hidden md:inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition"
         >
           <span>+</span> Add Movie
         </button>
@@ -143,8 +156,7 @@ export default function Home() {
           role="status"
           className="mb-4 rounded-xl border border-amber-700/50 bg-amber-950/50 px-4 py-3 text-xs text-amber-200"
         >
-          You&apos;re offline. Showing saved data from your last sync. Reconnect to
-          add, update, or delete movies and to play trailers.
+          You&apos;re offline. Showing saved data. New movies will sync when you reconnect. Status changes, deletion, and trailers require an internet connection.
         </div>
       )}
 
@@ -238,23 +250,21 @@ export default function Home() {
 
       {/* Mobile Floating Action Button (FAB) */}
       <button
-        disabled={isOffline}
         onClick={() => setIsAddModalOpen(true)}
         aria-label="Add Movie"
-        title={isOffline ? 'Reconnect to add a movie' : 'Add movie'}
-        className="fixed md:hidden right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex items-center gap-2 bg-indigo-600 active:bg-indigo-500 text-white text-sm font-semibold px-5 py-3.5 rounded-full shadow-2xl shadow-indigo-900/60 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-50"
+        title={isOffline ? 'Add a movie to sync later' : 'Add movie'}
+        className="fixed md:hidden right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-40 flex items-center gap-2 bg-indigo-600 active:bg-indigo-500 text-white text-sm font-semibold px-5 py-3.5 rounded-full shadow-2xl shadow-indigo-900/60 active:scale-95 transition"
       >
         <span className="text-base font-bold">+</span> Add Movie
       </button>
 
       {/* Modals */}
-      {!isOffline && (
-        <AddMovieModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onMovieAdded={loadMovies}
-        />
-      )}
+      <AddMovieModal
+        isOpen={isAddModalOpen}
+        isOffline={isOffline}
+        onClose={() => setIsAddModalOpen(false)}
+        onMovieAdded={loadMovies}
+      />
 
       {activeTrailer && (
         <TrailerModal
