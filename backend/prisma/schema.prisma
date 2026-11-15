@@ -16,15 +16,21 @@ model Genre {
 
 model Movie {
   id              Int         @id @default(autoincrement())
-  clientRequestId String?     @unique @db.Uuid
+  clientRequestId String?     @db.Uuid
+  userId          Int?
+  user            User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   title           String
   description     String?
   status          WatchStatus @default(TO_WATCH)
   rating          Int?
   trailerUrl      String?
-  genres          Genre[] // Plural array for Many-to-Many relation
+  genres          Genre[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, createdAt])
+  @@index([userId, status])
 }
 
 enum WatchStatus {
@@ -36,6 +42,7 @@ model User {
   id           Int      @id @default(autoincrement())
   email        String   @unique
   passwordHash String
+  movies       Movie[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

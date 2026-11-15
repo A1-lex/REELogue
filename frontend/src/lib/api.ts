@@ -20,6 +20,7 @@ export interface MovieQuery {
   limit?: number;
   search?: string;
   status?: MovieStatus;
+  genreId?: number;
 }
 
 export interface PaginatedMovies {
@@ -34,7 +35,7 @@ export interface PaginatedMovies {
 }
 
 export async function fetchMovies(
-  { page = 1, limit = 6, search, status }: MovieQuery = {},
+  { page = 1, limit = 6, search, status, genreId }: MovieQuery = {},
   signal?: AbortSignal,
 ): Promise<PaginatedMovies> {
   const params = new URLSearchParams({
@@ -46,16 +47,19 @@ export async function fetchMovies(
 
   if (trimmed) params.append('search', trimmed);
   if (status) params.append('status', status);
+  if (genreId) params.append('genreId', String(genreId));
 
   try {
-    const res = await fetch(`${API_BASE_URL}/movies?${params}`, { signal });
+    const res = await fetch(`${API_BASE_URL}/movies?${params}`, {
+      signal,
+      credentials: 'include',
+    });
 
     if (!res.ok) {
       throw new Error(`Failed to fetch movies (${res.status})`);
     }
 
     const result: PaginatedMovies = await res.json();
-
     await cacheMovies(result.data);
 
     return result;
@@ -75,6 +79,12 @@ export async function fetchMovies(
 
     if (status) {
       movies = movies.filter((movie) => movie.status === status);
+    }
+
+    if (genreId) {
+      movies = movies.filter((movie) =>
+        (movie.genres ?? []).some((genre) => genre.id === genreId),
+      );
     }
 
     const total = movies.length;
@@ -125,6 +135,7 @@ export async function createMovie(
   try {
     const res = await fetch(`${API_BASE_URL}/movies`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload),
     });
@@ -138,7 +149,6 @@ export async function createMovie(
     await putCachedMovie(syncedMovie);
     return syncedMovie;
   } catch (error) {
-    // Queue only network failures. HTTP 400/409 errors should remain visible.
     if (error instanceof TypeError) {
       return queueMovieCreate(requestPayload);
     }
@@ -165,6 +175,7 @@ async function runPendingMovieCreateSync(): Promise<{
     try {
       const res = await fetch(`${API_BASE_URL}/movies`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pending.payload),
       });
@@ -211,13 +222,17 @@ export function syncPendingMovieCreates(): Promise<{
 }
 
 export async function deleteMovie(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/movies/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${API_BASE_URL}/movies/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error('Failed to delete movie');
 }
 
 export async function updateMovieStatus(id: number, status: MovieStatus): Promise<Movie> {
   const res = await fetch(`${API_BASE_URL}/movies/${id}/status`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
@@ -239,7 +254,9 @@ export async function refreshOfflineMovieSnapshot(): Promise<number> {
       limit: String(limit),
     });
 
-    const res = await fetch(`${API_BASE_URL}/movies?${params}`);
+    const res = await fetch(`${API_BASE_URL}/movies?${params}`, {
+      credentials: 'include',
+    });
 
     if (!res.ok) {
       throw new Error(`Failed to refresh offline snapshot (${res.status})`);
