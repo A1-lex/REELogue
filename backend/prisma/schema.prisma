@@ -17,8 +17,8 @@ model Genre {
 model Movie {
   id              Int         @id @default(autoincrement())
   clientRequestId String?     @db.Uuid
-  userId          Int?
-  user            User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   title           String
   description     String?
   status          WatchStatus @default(TO_WATCH)
