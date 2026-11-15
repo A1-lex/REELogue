@@ -113,15 +113,20 @@ export async function fetchGenres(): Promise<Genre[]> {
 export async function createMovie(
   payload: CreateMoviePayload,
 ): Promise<Movie> {
+  const requestPayload: CreateMoviePayload = {
+    ...payload,
+    clientRequestId: payload.clientRequestId ?? crypto.randomUUID(),
+  };
+
   if (!navigator.onLine) {
-    return queueMovieCreate(payload);
+    return queueMovieCreate(requestPayload);
   }
 
   try {
     const res = await fetch(`${API_BASE_URL}/movies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     });
 
     if (!res.ok) {
@@ -135,14 +140,16 @@ export async function createMovie(
   } catch (error) {
     // Queue only network failures. HTTP 400/409 errors should remain visible.
     if (error instanceof TypeError) {
-      return queueMovieCreate(payload);
+      return queueMovieCreate(requestPayload);
     }
 
     throw error;
   }
 }
 
-export async function syncPendingMovieCreates(): Promise<{
+let pendingCreateSync: Promise<{ synced: number; failed: number }> | null = null;
+
+async function runPendingMovieCreateSync(): Promise<{
   synced: number;
   failed: number;
 }> {
@@ -170,22 +177,37 @@ export async function syncPendingMovieCreates(): Promise<{
       await completePendingMovieCreate(pending.localId, serverMovie);
       synced += 1;
     } catch (error) {
-    console.error(
-      `Failed to synchronize queued movie ${pending.localId}:`,
-      error,
-    );
+      console.error(
+        `Failed to synchronize queued movie ${pending.localId}:`,
+        error,
+      );
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Unknown synchronization error';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unknown synchronization error';
 
-    await markPendingMovieCreateFailed(pending, message);
-    failed += 1;
-}
+      await markPendingMovieCreateFailed(pending, message);
+      failed += 1;
+    }
   }
 
   return { synced, failed };
+}
+
+export function syncPendingMovieCreates(): Promise<{
+  synced: number;
+  failed: number;
+}> {
+  if (pendingCreateSync) {
+    return pendingCreateSync;
+  }
+
+  pendingCreateSync = runPendingMovieCreateSync().finally(() => {
+    pendingCreateSync = null;
+  });
+
+  return pendingCreateSync;
 }
 
 export async function deleteMovie(id: number): Promise<void> {

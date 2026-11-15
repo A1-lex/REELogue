@@ -116,15 +116,21 @@ export async function queueMovieCreate(
   const genres = await getCachedGenres();
   const now = new Date().toISOString();
   const localId = `local-${crypto.randomUUID()}`;
+  const queuedPayload: CreateMoviePayload = {
+    ...payload,
+    clientRequestId: payload.clientRequestId ?? crypto.randomUUID(),
+  };
 
   const localMovie: Movie = {
     id: localId,
-    title: payload.title,
-    description: payload.description,
-    status: payload.status,
-    rating: payload.rating,
-    trailerUrl: payload.trailerUrl,
-    genres: genres.filter((genre) => payload.genreIds.includes(genre.id)),
+    title: queuedPayload.title,
+    description: queuedPayload.description,
+    status: queuedPayload.status,
+    rating: queuedPayload.rating,
+    trailerUrl: queuedPayload.trailerUrl,
+    genres: genres.filter((genre) =>
+      queuedPayload.genreIds.includes(genre.id),
+    ),
     createdAt: now,
     updatedAt: now,
     syncState: 'PENDING_CREATE',
@@ -132,7 +138,7 @@ export async function queueMovieCreate(
 
   const pending: PendingMovieCreate = {
     localId,
-    payload,
+    payload: queuedPayload,
     queuedAt: now,
     attempts: 0,
   };

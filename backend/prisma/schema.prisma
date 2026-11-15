@@ -10,20 +10,21 @@ generator client {
 model Genre {
   id        Int      @id @default(autoincrement())
   name      String   @unique
-  movies    Movie[]  // Implicit Many-to-Many
+  movies    Movie[] // Implicit Many-to-Many
   createdAt DateTime @default(now())
 }
 
 model Movie {
-  id          Int         @id @default(autoincrement())
-  title       String
-  description String?
-  status      WatchStatus @default(TO_WATCH)
-  rating      Int?
-  trailerUrl  String?
-  genres      Genre[]     // Plural array for Many-to-Many relation
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              Int         @id @default(autoincrement())
+  clientRequestId String?     @unique @db.Uuid
+  title           String
+  description     String?
+  status          WatchStatus @default(TO_WATCH)
+  rating          Int?
+  trailerUrl      String?
+  genres          Genre[] // Plural array for Many-to-Many relation
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 enum WatchStatus {

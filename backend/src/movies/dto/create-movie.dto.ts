@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsEnum, IsInt, Min, Max, IsUrl, IsArray, ArrayNotEmpty } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { WatchStatus } from '@prisma/client';
 
 export class CreateMovieDto {
@@ -27,4 +38,8 @@ export class CreateMovieDto {
   @ArrayNotEmpty()
   @IsInt({ each: true })
   genreIds: number[];
+
+  @IsOptional()
+  @IsUUID('4')
+  clientRequestId?: string;
 }

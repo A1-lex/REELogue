@@ -21,6 +21,7 @@ export interface Movie {
 }
 
 export interface CreateMoviePayload {
+  clientRequestId?: string;
   title: string;
   description?: string;
   status: MovieStatus;
@@ -28,3 +29,4 @@ export interface CreateMoviePayload {
   trailerUrl?: string;
   genreIds: number[];
 }
+

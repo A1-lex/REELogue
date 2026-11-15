@@ -69,24 +69,22 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const handleOffline = () => setIsOffline(true);
-
-    const handleOnline = async () => {
-      setIsOffline(false);
-      await syncAndReload();
+    const updateNetworkStatus = () => {
+      setIsOffline(!navigator.onLine);
     };
 
-    setIsOffline(!navigator.onLine);
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
+    updateNetworkStatus();
+
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
 
     if (navigator.onLine) {
       syncAndReload();
     }
 
     return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
     };
   }, []);
 
@@ -112,12 +110,19 @@ export default function Home() {
   const handleDelete = async (id: number | string) => {
     if (isOffline) return;
     if (confirm('Are you sure you want to delete this movie?')) {
-      await deleteMovie(Number(id));
+      try {
+        await deleteMovie(Number(id));
+      } catch (error) {
+        console.error('Failed to delete movie:', error);
+        return;
+      }
+
       try {
         await refreshOfflineMovieSnapshot();
       } catch (error) {
-        console.error('Failed to refresh offline movie snapshot:', error);
+        console.error('Movie deleted, but offline cache refresh failed:', error);
       }
+
       await loadMovies();
     }
   };
@@ -129,15 +134,18 @@ export default function Home() {
     if (isOffline) return;
     try {
       await updateMovieStatus(Number(id), newStatus);
-      try {
-        await refreshOfflineMovieSnapshot();
-      } catch (error) {
-        console.error('Failed to refresh offline movie snapshot:', error);
-      }
-      await loadMovies();
     } catch (error) {
       console.error('Failed to update movie status:', error);
+      return;
     }
+
+    try {
+      await refreshOfflineMovieSnapshot();
+    } catch (error) {
+      console.error('Status updated, but offline cache refresh failed:', error);
+    }
+
+    await loadMovies();
   };
 
   const handleMovieAdded = async () => {

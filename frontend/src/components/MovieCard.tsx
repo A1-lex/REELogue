@@ -9,6 +9,7 @@ interface MovieCardProps {
   onDelete: (id: number | string) => void;
   onStatusChange: (id: number | string, newStatus: MovieStatus) => void;
   isOffline?: boolean;
+  onRetrySync?: () => void | Promise<void>;
 }
 
 export default function MovieCard({
@@ -16,6 +17,7 @@ export default function MovieCard({
   onDelete,
   onStatusChange,
   isOffline = false,
+  onRetrySync,
 }: MovieCardProps) {
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -76,9 +78,15 @@ export default function MovieCard({
                 </span>
               )}
               {movie.syncState === 'SYNC_FAILED' && (
-                <span className="rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-[10px] font-semibold text-red-300">
-                  Sync failed
-                </span>
+                <button
+                  type="button"
+                  onClick={() => onRetrySync?.()}
+                  disabled={isOffline}
+                  className="rounded-full border border-red-800 bg-red-950 px-2 py-0.5 text-[10px] font-semibold text-red-300 transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={isOffline ? 'Reconnect to retry synchronization' : 'Retry synchronization'}
+                >
+                  Retry sync
+                </button>
               )}
             </div>
             <div className="flex items-center gap-2">

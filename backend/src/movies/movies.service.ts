@@ -8,16 +8,32 @@ export class MoviesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateMovieDto) {
-    const { genreIds, ...movieData } = dto;
+    const { genreIds, clientRequestId, ...movieData } = dto;
+    const include = { genres: true } as const;
 
-    return this.prisma.movie.create({
-      data: {
+    if (!clientRequestId) {
+      return this.prisma.movie.create({
+        data: {
+          ...movieData,
+          genres: {
+            connect: genreIds.map((id) => ({ id })),
+          },
+        },
+        include,
+      });
+    }
+
+    return this.prisma.movie.upsert({
+      where: { clientRequestId },
+      update: {},
+      create: {
         ...movieData,
+        clientRequestId,
         genres: {
-          connect: genreIds?.map((id) => ({ id })) || [],
+          connect: genreIds.map((id) => ({ id })),
         },
       },
-      include: { genres: true },
+      include,
     });
   }
 
